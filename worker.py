@@ -1,7 +1,7 @@
 #!/usr/bin/python2.7
 
 import urllib, subprocess, os, string, json, re
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from sunrise import sun
 from time import sleep
 from PIL import Image, ImageFont, ImageDraw
@@ -15,6 +15,8 @@ stationBoardTo=time(hour=8,minute=0,second=0)
 s = sun(lat=52.37,long=9.72)
 lightIs = False
 doorState = False
+black = (0,0,0)
+yellow = (255,255,0)
 
 
 digfont = ImageFont.truetype("4x7.ttf", 7)
@@ -40,8 +42,9 @@ def doorIsOpen():
 	return URLRequest("http://leinelab.net/ampel/status.txt", {}) == "OpenLab"
 
 def getStationImage(stationId):
-	depatures = json.loads(URLRequest("http://pebble.sndstrm.de/fahrplan/stationBoard.php?ext_id="+stationId+"&max=10", {}))
 	now = datetime.now()
+	req_for = (now + timedelta(0,60*5))
+	depatures = json.loads(URLRequest("http://pebble.sndstrm.de/fahrplan/stationBoard.php", {"ext_id":stationId,"max":10,"date":req_for.strftime("%d.%m.%y"),"time":req_for.strftime("%H:%M")}))
 	station = {"in":list(), "out":list()}
 	for depature in depatures["Journey"]:
 		depOb = {}
@@ -80,6 +83,9 @@ def getStationImage(stationId):
 		elif re.search('Wettbergen', dest):
 			depOb["destination"] = "Wettb."
 			station["out"].append(depOb)
+		elif re.search('Lohnde', dest):
+			depOb["destination"] = "Lohnde"
+			station["in"].append(depOb)
 		elif re.search('Empelde', dest):
 			depOb["destination"] = "Empelde"
 			station["in"].append(depOb)
@@ -92,30 +98,31 @@ def getStationImage(stationId):
 		else:
 			depOb["destination"] = dest[:6]
 			station["out"].append(depOb)
-
+	#debug
+	#print station
 	img = Image.new('RGB', (width, height))
 	draw = ImageDraw.Draw(img)
-	draw.rectangle(((0,0),(12,16)), fill="white")
-	draw.text((1, 1), station["in"][0]["line"].rjust(3, " "), (0,0,0),font=digfont)
-	draw.text((14, 0), station["in"][0]["destination"], (255,255,255),font=font)
-	draw.text((1, 9), station["in"][1]["line"].rjust(3, " "), (0,0,0),font=digfont)
-	draw.text((14, 8), station["in"][1]["destination"], (255,255,255),font=font)
+	draw.rectangle(((0,0),(12,16)), fill=yellow)
+	draw.text((1, 1), station["in"][0]["line"].rjust(3, " "), black, font=digfont)
+	draw.text((14, 0), station["in"][0]["destination"], yellow, font=font)
+	draw.text((1, 9), station["in"][1]["line"].rjust(3, " "), black, font=digfont)
+	draw.text((14, 8), station["in"][1]["destination"], yellow, font=font)
 
-	draw.rectangle(((46,0),(69,16)), fill="white")
-	draw.line((56,0,56,15), fill=0)
-	draw.line((55,0,55,15), fill=0)
+	draw.rectangle(((46,0),(69,16)), fill=yellow)
+	draw.line((56,0,56,15), fill=black)
+	draw.line((55,0,55,15), fill=black)
 
-	draw.text((47, 1), str(station["in"][1]["in"]).rjust(2, "0"), (0,0,0),font=digfont)
-	draw.text((47, 9), str(station["in"][1]["in"]).rjust(2, "0"), (0,0,0),font=digfont)
+	draw.text((47, 1), str(station["in"][0]["in"]).rjust(2, "0"), black, font=digfont)
+	draw.text((47, 9), str(station["in"][1]["in"]).rjust(2, "0"), black, font=digfont)
 
-	draw.text((1 +57, 1), station["out"][0]["line"].rjust(3, " "), (0,0,0),font=digfont)
-	draw.text((14+57, 0), station["out"][0]["destination"], (255,255,255),font=font)
-	draw.text((1 +57, 9), station["out"][1]["line"].rjust(3, " "), (0,0,0),font=digfont)
-	draw.text((14+57, 8), station["out"][1]["destination"], (255,255,255),font=font)
+	draw.text((1 +57, 1), station["out"][0]["line"].rjust(3, " "), black, font=digfont)
+	draw.text((14+57, 0), station["out"][0]["destination"],  yellow, font=font)
+	draw.text((1 +57, 9), station["out"][1]["line"].rjust(3, " "), black, font=digfont)
+	draw.text((14+57, 8), station["out"][1]["destination"],  yellow, font=font)
 
-	draw.rectangle(((103,0),(112,16)), fill="white")
-	draw.text((47+57, 1), str(station["out"][1]["in"]).rjust(2, "0"), (0,0,0),font=digfont)
-	draw.text((47+57, 9), str(station["out"][1]["in"]).rjust(2, "0"), (0,0,0),font=digfont)
+	draw.rectangle(((103,0),(112,16)), fill=yellow)
+	draw.text((47+57, 1), str(station["out"][0]["in"]).rjust(2, "0"), black, font=digfont)
+	draw.text((47+57, 9), str(station["out"][1]["in"]).rjust(2, "0"), black, font=digfont)
 	#DEBUG
 	img.save('sample-out.png')
 	return img
@@ -123,13 +130,13 @@ def getStationImage(stationId):
 def pushImage(img):
 	bitmap = ""
 	for pixel in list(img.getdata()):
-		bitmap += "0" if pixel == (0,0,0) else "1"
+		bitmap += "0" if pixel == black else "1"
 	URLRequest('http://'+ip+'/api', {'drawBitmap':bitmap})
 
 
 
 doorState = not doorIsOpen()
-
+getStationImage("000638934")
 
 while True:
 	if lightIs != isDarkOutside():
