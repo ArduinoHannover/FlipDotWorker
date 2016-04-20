@@ -1,6 +1,6 @@
-#!/usr/bin/python2.7
+#!/usr/bin/python3
 
-import urllib, urllib2, subprocess, os, string, json, re, sys
+import urllib.request, urllib.parse, subprocess, os, string, json, re, sys
 from datetime import date, datetime, time, timedelta
 from sunrise import sun
 from time import sleep
@@ -30,17 +30,19 @@ def isDarkOutside():
 
 def URLRequest(url, params, method="GET"):
 	try:
-		params = urllib.urlencode(params)
+		params = urllib.parse.urlencode(params)
 		if debug:
 			print(url+'?'+params)
 		if method == "POST":
-			f = urllib2.urlopen(url, params, timeout=10)
+			f = urllib.request.urlopen(url, params, 
+timeout=10)
 		else:
-			f = urllib2.urlopen(url+'?'+params, None, timeout=10)
+			f = urllib.request.urlopen(url+'?'+params, None, 
+timeout=10)
 		if debug:
 			print("done.")
-		return f.read()
-	except Exception, e:
+		return f.read().decode(f.info().get_content_charset('UTF-8'))
+	except Exception as e:
 		if debug:
 			print("Exception while fetching: ",e)
 		return False
@@ -67,6 +69,7 @@ def getStationImage(stationId):
 	req = URLRequest("http://pebble.sndstrm.de/fahrplan/stationBoard.php", {"ext_id":stationId,"max":10,"date":req_for.strftime("%d.%m.%y"),"time":req_for.strftime("%H:%M")})
 	if req == False:
 		return False
+	#depatures = req
 	depatures = json.loads(req)
 	station = {"in":list(), "out":list()}
 	for depature in depatures["Journey"]:
@@ -85,9 +88,15 @@ def getStationImage(stationId):
 		elif re.search('Hannover ZOB', dest):
 			depOb["destination"] = "ZOB"
 			station["in"].append(depOb)
+		elif re.search('Hauptbahnhof', dest):
+			depOb["destination"] = "Hbf"
+			station["in"].append(depOb)
 		elif re.search('Altwarmb', dest):
 			depOb["destination"] = "Altwb."
 			station["in"].append(depOb)
+		elif re.search('Ahlem', dest):
+			depOb["destination"] = "Ahlem"
+			station["out"].append(depOb)
 		elif re.search('Pattensen ZOB', dest):
 			depOb["destination"] = "Pat ZOB"
 			station["out"].append(depOb)
@@ -105,21 +114,21 @@ def getStationImage(stationId):
 			station["out"].append(depOb)
 		elif re.search('Lohnde', dest):
 			depOb["destination"] = "Lohnde"
-			station["in"].append(depOb)
+			station["out"].append(depOb)
 		elif re.search('Empelde', dest):
 			depOb["destination"] = "Empelde"
-			station["in"].append(depOb)
+			station["out"].append(depOb)
 		elif re.search('Wallensteinstra', dest):
 			depOb["destination"] = "Walle."
-			station["in"].append(depOb)
-		elif re.search('Ahlem', dest):
-			depOb["destination"] = "Ahlem"
+			station["out"].append(depOb)
+		elif re.search('Wunstorf', dest):
+			depOb["destination"] = "Wunst."
 			station["out"].append(depOb)
 		else:
 			depOb["destination"] = dest[:6]
 			station["out"].append(depOb)
 	if debug:
-		print station
+		print(station)
 	img = Image.new('RGB', (width, height))
 	draw = ImageDraw.Draw(img)
 	draw.rectangle(((0,0),(12,16)), fill=yellow)
@@ -163,11 +172,16 @@ while True:
 		URLRequest('http://'+ip+'/api', {'setBacklight':1 if isDarkOutside() else 0})
 		lightIs = not lightIs
 	if (
-	datetime.today().weekday() in [2,4,5] and datetime.now().time() > stationBoardFrom or
-	datetime.today().weekday() in [3,5,6] and datetime.now().time() < stationBoardTo
+	True
+	datetime.today().weekday() in [1,4,5] and datetime.now().time() > stationBoardFrom or
+	datetime.today().weekday() in [2,5,6] and datetime.now().time() < stationBoardTo
 	):
-		for i in range[0:5]:
+		for i in range(0,5):
 			if i == 0:
+				URLRequest('http://'+ip+'/api', {'fillScreen':0,'setCursor':1,'x':0,'y':0,'print':"Snake spielen: \nhttp://192.168.4.1"})
+				sleep(10);
+				URLRequest('http://'+ip+'/api', {'fillScreen':0,'setCursor':1,'x':0,'y':0,'print':"WLAN: Snake\nLeineLab ist "+("offen" if doorIsOpen() else "zu")})
+				sleep(10);
 				show_for = datetime.now()+timedelta(0,10)
 				while datetime.now() <= show_for:
 					st = datetime.now()
@@ -189,7 +203,9 @@ while True:
 				pushImage(getStationImage("000638551"))
 				sleep(15)
 	else:
-		URLRequest('http://'+ip+'/api', {'fillScreen':0,'setCursor':1,'x':0,'y':0,'print':"LeineLab ist\n"+("offen" if doorIsOpen() else "geschlossen")})
+		URLRequest('http://'+ip+'/api', {'fillScreen':0,'setCursor':1,'x':0,'y':0,'print':"Snake spielen: \nhttp://192.168.4.1"})
+		sleep(10);
+		URLRequest('http://'+ip+'/api', {'fillScreen':0,'setCursor':1,'x':0,'y':0,'print':"LeineLab ist "+("offen" if doorIsOpen() else "zu")+"\n  192.168.0.193"})
 		sleep(50)
 		show_for = datetime.now()+timedelta(0,10)
 		while datetime.now() <= show_for:
