@@ -172,7 +172,7 @@ while True:
 		URLRequest('http://'+ip+'/api', {'setBacklight':1 if isDarkOutside() else 0})
 		lightIs = not lightIs
 	if (
-	True
+	True or
 	datetime.today().weekday() in [1,4,5] and datetime.now().time() > stationBoardFrom or
 	datetime.today().weekday() in [2,5,6] and datetime.now().time() < stationBoardTo
 	):
